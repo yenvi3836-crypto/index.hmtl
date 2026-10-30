@@ -1,0 +1,292 @@
+
+import streamlit as st
+import random
+import math
+import wave
+import io
+import struct
+
+st.set_page_config(
+    page_title="CHILL SHOP",
+    page_icon="🛍️",
+    layout="wide"
+)
+
+# ---------- STYLE ----------
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg,#101827,#26334b);
+    color: white;
+}
+h1,h2,h3,p,label { color: white !important; }
+.shop-card {
+    background: #26364b;
+    border: 1px solid #52647d;
+    border-radius: 18px;
+    padding: 18px;
+    margin: 8px 0;
+}
+.customer {
+    background: linear-gradient(120deg,#384a68,#29374f);
+    border-radius: 18px;
+    padding: 22px;
+    text-align: center;
+    border: 1px solid #7386a5;
+}
+.stButton button {
+    border-radius: 12px;
+    font-weight: bold;
+    min-height: 45px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ---------- ORIGINAL CHILL MUSIC ----------
+@st.cache_data
+def make_music():
+    rate = 22050
+    duration = 8
+    buffer = io.BytesIO()
+
+    with wave.open(buffer, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(rate)
+
+        frames = bytearray()
+        notes = [261.63, 329.63, 392.00, 329.63]
+
+        for i in range(rate * duration):
+            t = i / rate
+            freq = notes[int(t / 2) % len(notes)]
+            fade = min(1, t * 2, (duration-t) * 2)
+            sound = (
+                math.sin(2 * math.pi * freq * t) * 0.10
+                + math.sin(2 * math.pi * freq * 0.5 * t) * 0.05
+            )
+            value = int(32767 * sound * max(0, fade))
+            frames.extend(struct.pack("<h", value))
+
+        wav.writeframes(frames)
+
+    return buffer.getvalue()
+
+# ---------- PRODUCTS ----------
+PRODUCTS = {
+    "☕ Cà phê": {
+        "hint": "Tôi cần một món giúp mình tỉnh táo!",
+        "price": 25
+    },
+    "🧋 Trà sữa": {
+        "hint": "Tôi muốn một thức uống ngọt ngào!",
+        "price": 35
+    },
+    "🍰 Bánh kem": {
+        "hint": "Tôi muốn món tráng miệng mềm và ngọt!",
+        "price": 45
+    },
+    "🍞 Bánh mì": {
+        "hint": "Tôi đang đói và muốn ăn gì đó!",
+        "price": 20
+    },
+    "🍦 Kem": {
+        "hint": "Tôi muốn món lạnh mát!",
+        "price": 30
+    },
+    "🍓 Nước dâu": {
+        "hint": "Tôi muốn một loại nước trái cây màu đỏ!",
+        "price": 28
+    },
+    "🍪 Bánh quy": {
+        "hint": "Tôi muốn món ăn vặt giòn giòn!",
+        "price": 18
+    },
+    "🥪 Sandwich": {
+        "hint": "Tôi muốn một bữa ăn kẹp nhân!",
+        "price": 40
+    }
+}
+
+CUSTOMERS = [
+    ("👧", "Linh"),
+    ("👦", "Minh"),
+    ("👩", "An"),
+    ("🧑", "Nam"),
+    ("👨", "Huy"),
+    ("👩‍🦰", "Mai"),
+    ("🧔", "Tuấn"),
+]
+
+# ---------- GAME STATE ----------
+def new_game():
+    st.session_state.day = 1
+    st.session_state.money = 100
+    st.session_state.reputation = 100
+    st.session_state.served = 0
+    st.session_state.mistakes = 0
+    st.session_state.message = "Chào mừng đến với CHILL SHOP!"
+    st.session_state.order = None
+    st.session_state.finished = False
+    st.session_state.result = None
+    new_order()
+
+def new_order():
+    st.session_state.order = random.choice(list(PRODUCTS.keys()))
+
+if "day" not in st.session_state:
+    new_game()
+
+# ---------- END GAME ----------
+def finish_game(result):
+    st.session_state.finished = True
+    st.session_state.result = result
+
+# ---------- HEADER ----------
+st.title("🛍️ CHILL SHOP")
+st.caption("Quản lý cửa hàng – Phục vụ khách – Trở thành ông chủ giỏi!")
+
+if st.button("🎵 Bật / phát nhạc chill"):
+    st.session_state.music = not st.session_state.get("music", False)
+
+if st.session_state.get("music", False):
+    st.audio(make_music(), format="audio/wav", loop=True)
+
+# ---------- STATUS ----------
+a, b, c, d = st.columns(4)
+a.metric("💰 Tiền", f"{st.session_state.money} xu")
+b.metric("⭐ Uy tín", f"{st.session_state.reputation}%")
+c.metric("😊 Khách vui", st.session_state.served)
+d.metric("📅 Màn", f"{st.session_state.day}/10")
+
+st.progress(st.session_state.reputation / 100)
+
+# ---------- END SCREEN ----------
+if st.session_state.finished:
+    if st.session_state.result == "win":
+        st.markdown("""
+        <div class="customer">
+        <h1>🏆 VICTORY!</h1>
+        <h2>🎉 CHÚC MỪNG ÔNG CHỦ!</h2>
+        <h3>Bạn đã xây dựng cửa hàng thành công!</h3>
+        <p>Khách hàng yêu quý cửa hàng của bạn!</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.balloons()
+    else:
+        st.markdown("""
+        <div class="customer">
+        <h1>💢 GAME OVER</h1>
+        <h2>😡 KHÁCH HÀNG ĐÃ QUÁ TỨC GIẬN!</h2>
+        <p>Cửa hàng mất uy tín và không thể tiếp tục.</p>
+        <h3>Thử lại để trở thành ông chủ giỏi hơn!</h3>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.write(f"Khách đã phục vụ: {st.session_state.served}")
+    st.write(f"Số tiền còn lại: {st.session_state.money} xu")
+
+    if st.button("🔄 CHƠI LẠI", use_container_width=True):
+        new_game()
+        st.rerun()
+
+# ---------- PLAYING ----------
+else:
+    difficulty = st.session_state.day
+
+    st.subheader(f"🏪 Ngày {difficulty}: Cửa hàng đang hoạt động")
+
+    if difficulty <= 3:
+        level = "Dễ"
+    elif difficulty <= 6:
+        level = "Trung bình"
+    elif difficulty <= 8:
+        level = "Khó"
+    else:
+        level = "Cực khó"
+
+    st.info(f"Độ khó: {level}")
+
+    avatar, info = st.columns([1, 2])
+
+    customer = random.Random(st.session_state.day * 17).choice(CUSTOMERS)
+
+    with avatar:
+        st.markdown(
+            f'<div class="customer"><h1>{customer[0]}</h1>'
+            f'<h3>{customer[1]}</h3></div>',
+            unsafe_allow_html=True
+        )
+
+    with info:
+        order = st.session_state.order
+        st.markdown('<div class="shop-card">', unsafe_allow_html=True)
+        st.subheader("💬 Khách hàng yêu cầu:")
+        st.write(f'"{PRODUCTS[order]["hint"]}"')
+        st.write("Hãy chọn đúng sản phẩm nhé!")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # Difficulty: fewer attempts as game progresses
+    if difficulty <= 3:
+        choices = list(PRODUCTS.keys())
+    elif difficulty <= 6:
+        choices = list(PRODUCTS.keys())
+    else:
+        choices = list(PRODUCTS.keys())
+
+    selected = st.selectbox(
+        "📦 Chọn sản phẩm để bán:",
+        choices,
+        key=f"choice_{difficulty}"
+    )
+
+    price = PRODUCTS[order]["price"]
+
+    if st.button("🛒 GIAO HÀNG CHO KHÁCH", use_container_width=True):
+        if selected == order:
+            bonus = difficulty * 3
+            st.session_state.money += price + bonus
+            st.session_state.reputation = min(
+                100, st.session_state.reputation + 3
+            )
+            st.session_state.served += 1
+            st.session_state.message = (
+                f"🥰 Khách hàng vui vẻ! +{price + bonus} xu"
+            )
+        else:
+            st.session_state.money = max(
+                0, st.session_state.money - 10
+            )
+            st.session_state.reputation -= 15 + difficulty
+            st.session_state.mistakes += 1
+            st.session_state.message = (
+                "😡 Khách hàng tức giận! Bạn đã giao sai hàng!"
+            )
+
+        st.session_state.day += 1
+
+        if st.session_state.reputation <= 0 or st.session_state.mistakes >= 4:
+            finish_game("lose")
+        elif st.session_state.day > 10:
+            if st.session_state.served >= 7 and st.session_state.money > 0:
+                finish_game("win")
+            else:
+                finish_game("lose")
+        else:
+            new_order()
+
+        st.rerun()
+
+    st.markdown(
+        f'<div class="shop-card"><h3>{st.session_state.message}</h3></div>',
+        unsafe_allow_html=True
+    )
+
+    st.caption(
+        "Mẹo: Chọn đúng sản phẩm để kiếm tiền và giữ uy tín. "
+        "Bạn có 10 ngày để hoàn thành thử thách!"
+    )
+
+st.divider()
+st.caption("🌙 CHILL SHOP © 2026 | Chúc bạn kinh doanh vui vẻ!")
+  
